@@ -17,13 +17,11 @@ function on_data_receive(event)
 	{
 		if(packet_complete_callback)
 		{
-			var buff = new ArrayBuffer(packetLen);
-			var array = new Uint8Array(buff);
-			array.set(receive_buffer, packetLen);
+			var array = receive_buffer.slice(0, receive_index);
 
 			receive_index = 0;
 
-			packet_complete_callback(buff);
+			packet_complete_callback(array);
 			packet_complete_callback = false;
 		}
 		else
@@ -39,7 +37,6 @@ function initialize_device(_device)
 	return device.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e")
 		.then(function(service) {
 
-
 			return Promise.all([
 				service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e"),
 				service.getCharacteristic("6e400003-b5a3-f393-e0a9-e50e24dcca9e"),
@@ -49,17 +46,18 @@ function initialize_device(_device)
 			
 			write_characteristic = characteristics[0];
 			
-			characteristics[1].on('characteristicvaluechanged', on_data_receive);
+			characteristics[1].addEventListener('characteristicvaluechanged', on_data_receive);
 			return characteristics[1].startNotifications();
 
 		});
 }
 
-function calculate_checksum(data)
+function calculate_checksum(packet)
 {
+	var end = packet[2] + 4;
 	var sum = 0;
-	for(var i = 0; i < data.length; i++)
-		sum += data[i];
+	for(var i = 2; i < end; i++)
+		sum += packet[i];
 
 	return (sum & 0xFFFF) ^ 0xFFFF;
 }
@@ -68,7 +66,8 @@ function send_packet(command, offset, data)
 {
 	// 55 AA <len> 11 <cmd> <offset> [data...] <chk1> <chk2>
 
-	var packet = new Uint8Array(8 + data.byteLength);
+	var packetLen = 8 + data.byteLength;
+	var packet = new Uint8Array(packetLen);
 	packet[0] = 0x55;
 	packet[1] = 0xAA;
 	packet[2] = data.byteLength + 2;
@@ -77,9 +76,9 @@ function send_packet(command, offset, data)
 	packet[5] = offset;
 	packet.set(data, 6);
 
-	var checksum = calculate_checksum(data);
-	packet[packetLen - 2] = (checksum >> 8) & 0xFF;
-	packet[packetLen - 1] = checksum & 0xFF;
+	var checksum = calculate_checksum(packet);
+	packet[packetLen - 2] = checksum & 0xFF;
+	packet[packetLen - 1] = (checksum >> 8) & 0xFF;
 
 	return write_characteristic.writeValue(packet);
 }
@@ -96,12 +95,12 @@ function receive_packet()
 function read_register(offset, size)
 {
 	//cmd for reading is 0x01
-	var data = new Uint8Array([len]);
-	send_packet(0x01, offset, data)
+	var data = new Uint8Array([size]);
+	return send_packet(0x01, offset, data)
 		.then(receive_packet)
 		.then(function(packet) {
 
-			var view = new DataView(packet);
+			var view = new DataView(packet.buffer);
 
 			if(view.getUint8(2) != size + 2)
 				return Promise.reject("received packages payload does not match requests bytes length");
@@ -109,13 +108,13 @@ function read_register(offset, size)
 			switch(size)
 			{
 				case 1:
-					return view.getUint8(6);
+					return view.getUint8(6, true);
 				
 				case 2:
-					return view.getUint16(6);
+					return view.getUint16(6, true);
 
 				case 4:
-					return view.getUint32(6);
+					return view.getUint32(6, true);
 
 				default:
 					return Promise.reject("Invalid register size, valid are 1/2/4");
@@ -131,20 +130,23 @@ function write_register(offset, value, size)
 	switch(size)
 	{
 		case 1:
-			return view.setUint8(0, value);
+			view.setUint8(0, value, true);
+			break;
 		
 		case 2:
-			return view.setUint16(0, value);
+			view.setUint16(0, value, true);
+			break;
 
 		case 4:
-			return view.setUint32(0, value);
+			view.setUint32(0, value, true);
+			break;
 
 		default:
 			return Promise.reject("Invalid register size, valid are 1/2/4");
 	}
 
 	//cmd for writing is 0x02
-	send_packet(0x02, offset, new Uint8Array(buff))
+	return send_packet(0x02, offset, new Uint8Array(buff))
 		.then(receive_packet)
 		.then(function(packet) {
 

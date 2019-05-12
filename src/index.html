@@ -1,0 +1,96 @@
+<html>
+	<body>
+
+		<div id="select">
+			<button onclick="ui_connect()">Select Ninebot</button>
+		</div>
+
+		<div id="menu" style="display: none;">
+			Offset: <input id="offset" type="text" value="0x22" /><br />
+			Size: <input  id="size" type="number" value="2" /><br />
+			Value: <input  id="value" type="text" value="" /><br />
+			<button onclick="ui_read_register()">Read</button>
+			<button onclick="ui_write_register()">Write</button><br />
+			<button onclick="ui_disconnect()">Disconnect</button>
+		</div>
+
+		<p>
+			You need to use a Browser which supports WebBluetooth.<br />
+			For chrome go to chrome://flags/#enable-experimental-web-platform-features and enable "Experimental Web Platform features"<br />
+			See the <a href="https://wiki.scooterhacking.org/index.php/Ninebot_ES/SNSC_ESC_documentation#Registers">scooter hacking wiki</a> for a list of registers.
+		</p>
+
+		<script type="text/javascript" src="9BotONE.js"></script>
+		<script type="text/javascript">
+
+			var funcs = (function() {
+
+				var device_select = document.getElementById("select");
+				var device_menu = document.getElementById("menu");
+				var offset = document.getElementById("offset");
+				var size = document.getElementById("size");
+				var value = document.getElementById("value");
+
+				function getValue(element)
+				{
+					var val = parseInt(element.value, 0);
+
+					if(val === 0)
+						element.value = "0";
+					return val;
+				}
+
+				function handleErr(err)
+				{
+					disconnect();
+					alert(err);
+				}
+
+				function connect()
+				{
+					navigator.bluetooth.requestDevice({
+						filters: [{services: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]}],
+					})
+						.then(device => device.gatt.connect())
+						.then(initialize_device)
+						.then(() => {
+
+							device_select.style = "display: none;";
+							device_menu.style = "";
+
+						})
+						.catch(handleErr);
+				}
+
+				function disconnect()
+				{
+					device.disconnect();
+					device_menu.style = "display: none;";
+					device_select.style = "";
+				}
+
+				function read()
+				{
+					read_register(getValue(offset), getValue(size))
+						.then(val => value.value = val)
+						.catch(handleErr);
+				}
+
+				function write()
+				{
+					write_register(getValue(offset), getValue(value), getValue(size))
+						.catch(handleErr);
+				}
+
+				return {connect, disconnect, read, write};
+
+			})();
+
+			var ui_connect = funcs.connect;
+			var ui_disconnect = funcs.disconnect;
+			var ui_read_register = funcs.read;
+			var ui_write_register = funcs.write;
+
+		</script>
+	</body>
+</html>
