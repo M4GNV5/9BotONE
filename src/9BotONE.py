@@ -34,10 +34,14 @@ def send_packet(command, offset, data):
 	# 55 AA <len> 11 <cmd> <offset> [data...] <chk1> <chk2> for ONE A1/S2
 	# 55 AA <len> 09 <cmd> <offset> [data...] <chk1> <chk2> for others (untested)
 
-	payload = pack("BBBB", len(data) + 2, 0x11, command, offset) + data
+	# 5A A5 01    3E 20 01 F8 10 97 FE
+	# 5A A5 <len> 3E 20 <cmd> <offset> [data...] <chk1> <chk2> for Ninebot ES2
+
+	#payload = pack("BBBB", len(data) + 2, 0x11, command, offset) + data
+	payload = pack("BBBBB", len(data), 0x3E, 0x20, command, offset) + data
 	checksum = pack("<H", calculate_checksum(payload))
 
-	packet = bytearray("\x55\xAA" + payload + checksum)
+	packet = bytearray("\x5A\xA5" + payload + checksum)
 
 	print("> %s" % hexlify(packet).upper())
 	device.char_write_handle(write_handle, packet)
@@ -45,6 +49,7 @@ def send_packet(command, offset, data):
 def read_packet():
 	packet_header = read_response(6)
 	magic1, curr_len, magic2, offset = unpack("<HBHB", packet_header)
+	magic1, curr_len, magic2, magic3, offset = unpack("<HBHBB", packet_header)
 
 	curr_len -= 2
 	payload = read_response(curr_len)
