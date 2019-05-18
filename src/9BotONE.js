@@ -12,7 +12,7 @@ function on_data_receive(event)
 
 	receive_index += data.byteLength;
 
-	var packetLen = receive_buffer[2] + 6;
+	var packetLen = receive_buffer[2] + 9;
 	if(receive_index == packetLen)
 	{
 		if(packet_complete_callback)
@@ -65,16 +65,18 @@ function calculate_checksum(packet)
 function send_packet(command, offset, data)
 {
 	// 55 AA <len> 11 <cmd> <offset> [data...] <chk1> <chk2>
+	// 5A A5 <len> 3E 20 <cmd> <offset> [data...] <chk1> <chk2> for Ninebot ES2
 
-	var packetLen = 8 + data.byteLength;
+	var packetLen = 9 + data.byteLength;
 	var packet = new Uint8Array(packetLen);
 	packet[0] = 0x55;
 	packet[1] = 0xAA;
-	packet[2] = data.byteLength + 2;
-	packet[3] = 0x11;
-	packet[4] = command;
-	packet[5] = offset;
-	packet.set(data, 6);
+	packet[2] = data.byteLength;
+	packet[3] = 0x3E;
+	packet[4] = 0x20;
+	packet[5] = command;
+	packet[6] = offset;
+	packet.set(data, 7);
 
 	var checksum = calculate_checksum(packet);
 	packet[packetLen - 2] = checksum & 0xFF;
