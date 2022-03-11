@@ -44,4 +44,4 @@ too long, so i created a key fob using a [puckjs](https://www.puck-js.com/)
 which locks my scooter by simply clicking one button. Click the image for a demo
 video:
 
-[![](https://i.m4gnus.de/868d6.png)](https://i.m4gnus.de/2019-05/2019-05-18T16%3A56.mp4)
+[![](https://i.m4gnus.de/2019-05/2019-05-18T17:26.png)](https://i.m4gnus.de/2019-05/2019-05-18T16%3A56.mp4)
